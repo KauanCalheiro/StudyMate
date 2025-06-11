@@ -3,4 +3,11 @@
     <string name="app_name">StudyMate</string>
     <string name="notification_title">Time\'s up!</string>
     <string name="notification_message">Your study session has ended.</string>
+    
+    <!-- Pomodoro Widget -->
+    <string name="pomodoro_widget_name">Pomodoro Timer</string>
+    <string name="pomodoro_widget_description">Display and control Pomodoro timer</string>
+    <string name="start_pomodoro">Start Pomodoro</string>
+    <string name="pause_pomodoro">Pause Pomodoro</string>
+    <string name="reset_pomodoro">Reset Pomodoro</string>
 </resources>

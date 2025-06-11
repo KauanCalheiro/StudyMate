@@ -14,10 +14,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.edit
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.studymate.ui.widget.PomodoroWidgetProvider
+import com.example.studymate.ui.widget.dataStore
+import kotlinx.coroutines.flow.map
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -27,8 +32,19 @@ import kotlin.math.sin
 fun PomodoroScreen(
     viewModel: PomodoroViewModel = hiltViewModel()
 ) {
-    val timerState by viewModel.timerState.collectAsState()
-    val remainingTime by viewModel.remainingTime.collectAsState()
+    val context = LocalContext.current
+    val timerState by remember {
+        context.dataStore.data.map { preferences ->
+            preferences[PomodoroWidgetProvider.TIMER_STATE] ?: TimerState.Stopped.name
+        }
+    }.collectAsState(initial = TimerState.Stopped.name)
+
+    val remainingTime by remember {
+        context.dataStore.data.map { preferences ->
+            preferences[PomodoroWidgetProvider.REMAINING_TIME] ?: PomodoroWidgetProvider.DEFAULT_POMODORO_TIME
+        }
+    }.collectAsState(initial = PomodoroWidgetProvider.DEFAULT_POMODORO_TIME)
+
     val timerMode by viewModel.timerMode.collectAsState()
     val showEditDialog by viewModel.showEditDialog.collectAsState()
     val pomodoroDuration by viewModel.pomodoroDuration.collectAsState()
@@ -138,16 +154,16 @@ fun PomodoroScreen(
                 FloatingActionButton(
                     onClick = {
                         when (timerState) {
-                            TimerState.Running -> viewModel.pauseTimer()
+                            TimerState.Running.name -> viewModel.pauseTimer()
                             else -> viewModel.startTimer()
                         }
                     },
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Icon(
-                        if (timerState == TimerState.Running) Icons.Default.Pause
+                        if (timerState == TimerState.Running.name) Icons.Default.Pause
                         else Icons.Default.PlayArrow,
-                        contentDescription = if (timerState == TimerState.Running) "Pausar" else "Iniciar"
+                        contentDescription = if (timerState == TimerState.Running.name) "Pausar" else "Iniciar"
                     )
                 }
             }

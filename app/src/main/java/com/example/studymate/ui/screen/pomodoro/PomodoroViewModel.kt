@@ -1,28 +1,28 @@
 package com.example.studymate.ui.screen.pomodoro
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.studymate.data.repository.PomodoroRepository
+import com.example.studymate.ui.widget.PomodoroWidgetProvider
+import com.example.studymate.ui.widget.dataStore
 import com.example.studymate.util.NotificationScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import javax.inject.Inject
 
 @HiltViewModel
 class PomodoroViewModel @Inject constructor(
-    private val notificationScheduler: NotificationScheduler
+    private val notificationScheduler: NotificationScheduler,
+    private val pomodoroRepository: PomodoroRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
-
-    private val _timerState = MutableStateFlow<TimerState>(TimerState.Stopped)
-    val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
-
-    private val _remainingTime = MutableStateFlow(DEFAULT_POMODORO_TIME)
-    val remainingTime: StateFlow<Long> = _remainingTime.asStateFlow()
 
     private val _timerMode = MutableStateFlow<TimerMode>(TimerMode.Pomodoro)
     val timerMode: StateFlow<TimerMode> = _timerMode.asStateFlow()
@@ -40,42 +40,43 @@ class PomodoroViewModel @Inject constructor(
     private val _longBreakDuration = MutableStateFlow(15)
     val longBreakDuration: StateFlow<Int> = _longBreakDuration.asStateFlow()
 
-    private var timerJob: Job? = null
+    init {
+        viewModelScope.launch {
+            val preferences = context.dataStore.data.first()
+            val timerState = preferences[PomodoroWidgetProvider.TIMER_STATE] ?: TimerState.Stopped.name
+
+            if (timerState == TimerState.Running.name) {
+                startTimer()
+            }
+        }
+    }
 
     fun startTimer() {
-        if (_timerState.value == TimerState.Running) return
-
-        timerJob?.cancel()
-        timerJob = viewModelScope.launch {
-            _timerState.value = TimerState.Running
-            while (_remainingTime.value > 0) {
-                delay(1000)
-                _remainingTime.value -= 1
-            }
-            if (_remainingTime.value <= 0) {
-                _timerState.value = TimerState.Finished
+        pomodoroRepository.startTimer()
+        viewModelScope.launch {
+            val preferences = context.dataStore.data.first()
+            if (preferences[PomodoroWidgetProvider.TIMER_STATE] == TimerState.Finished.name) {
                 notifyTimerFinished()
             }
         }
     }
 
     fun pauseTimer() {
-        timerJob?.cancel()
-        _timerState.value = TimerState.Paused
+        pomodoroRepository.pauseTimer()
     }
 
     fun resetTimer() {
-        timerJob?.cancel()
-        _timerState.value = TimerState.Stopped
-        _remainingTime.value = getCurrentModeDuration()
+        pomodoroRepository.resetTimer()
     }
 
     fun setTimerMode(mode: TimerMode) {
-        if (_timerState.value == TimerState.Running) {
-            timerJob?.cancel()
+        viewModelScope.launch {
+            if (getTimerState() == TimerState.Running) {
+                pomodoroRepository.pauseTimer()
+            }
+            _timerMode.value = mode
+            resetTimer()
         }
-        _timerMode.value = mode
-        resetTimer()
     }
 
     fun showEditDialog() {
@@ -91,9 +92,10 @@ class PomodoroViewModel @Inject constructor(
         _shortBreakDuration.value = shortBreak.coerceIn(1, 30)
         _longBreakDuration.value = longBreak.coerceIn(1, 45)
         
-        // Reset timer with new duration if it's not running
-        if (_timerState.value != TimerState.Running) {
-            resetTimer()
+        viewModelScope.launch {
+            if (getTimerState() != TimerState.Running) {
+                resetTimer()
+            }
         }
     }
 
@@ -103,6 +105,11 @@ class PomodoroViewModel @Inject constructor(
             TimerMode.ShortBreak -> _shortBreakDuration.value * 60L
             TimerMode.LongBreak -> _longBreakDuration.value * 60L
         }
+    }
+
+    private suspend fun getTimerState(): TimerState {
+        val preferences = context.dataStore.data.first()
+        return TimerState.valueOf(preferences[PomodoroWidgetProvider.TIMER_STATE] ?: TimerState.Stopped.name)
     }
 
     private fun notifyTimerFinished() {

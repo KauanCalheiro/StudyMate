@@ -56,9 +56,31 @@
                 android:resource="@xml/task_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".ui.widget.PomodoroWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.studymate.ACTION_START_POMODORO" />
+                <action android:name="com.example.studymate.ACTION_PAUSE_POMODORO" />
+                <action android:name="com.example.studymate.ACTION_RESET_POMODORO" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/pomodoro_widget_info" />
+        </receiver>
+
         <service
             android:name=".ui.widget.TaskWidgetService"
             android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <service
+            android:name=".ui.widget.PomodoroWidgetUpdateService"
+            android:exported="false" />
+
+        <service
+            android:name=".ui.widget.PomodoroActionService"
             android:exported="false" />
 
     </application>
