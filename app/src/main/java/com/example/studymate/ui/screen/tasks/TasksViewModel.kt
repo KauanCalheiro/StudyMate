@@ -1,12 +1,18 @@
 package com.example.studymate.ui.screen.tasks
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.studymate.data.dao.SubjectDao
 import com.example.studymate.data.dao.TaskDao
 import com.example.studymate.data.model.Task
+import com.example.studymate.ui.widget.TaskWidgetProvider
 import com.example.studymate.util.NotificationScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -16,7 +22,8 @@ import javax.inject.Inject
 class TasksViewModel @Inject constructor(
     private val taskDao: TaskDao,
     private val subjectDao: SubjectDao,
-    private val notificationScheduler: NotificationScheduler
+    private val notificationScheduler: NotificationScheduler,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _filterSubjectId = MutableStateFlow<Long?>(null)
@@ -59,10 +66,19 @@ class TasksViewModel @Inject constructor(
         initialValue = emptyList()
     )
 
+    private fun updateWidget() {
+        val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+        val ids = AppWidgetManager.getInstance(context)
+            .getAppWidgetIds(ComponentName(context, TaskWidgetProvider::class.java))
+        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        context.sendBroadcast(intent)
+    }
+
     fun addTask(task: Task) {
         viewModelScope.launch {
             val id = taskDao.insertTask(task)
             notificationScheduler.scheduleTaskNotification(task.copy(id = id))
+            updateWidget()
         }
     }
 
@@ -72,6 +88,7 @@ class TasksViewModel @Inject constructor(
             if (!task.isCompleted) {
                 notificationScheduler.scheduleTaskNotification(task)
             }
+            updateWidget()
         }
     }
 
@@ -82,6 +99,7 @@ class TasksViewModel @Inject constructor(
             if (!task.isCompleted) {
                 notificationScheduler.cancelNotification(task.id.toInt())
             }
+            updateWidget()
         }
     }
 
@@ -105,6 +123,7 @@ class TasksViewModel @Inject constructor(
         viewModelScope.launch {
             taskDao.deleteTask(task)
             notificationScheduler.cancelNotification(task.id.toInt())
+            updateWidget()
         }
     }
 } 

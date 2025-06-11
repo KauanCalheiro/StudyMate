@@ -46,4 +46,12 @@ interface TaskDao {
         ORDER BY dueDate LIMIT 5
     """)
     fun getUpcomingTasks(date: LocalDateTime = LocalDateTime.now()): Flow<List<Task>>
+
+    @Query("""
+        SELECT * FROM tasks 
+        WHERE isCompleted = 0 
+        ORDER BY dueDate ASC, priority DESC
+        LIMIT 5
+    """)
+    suspend fun getUncompletedTasksByDueDate(): List<Task>
 } 
